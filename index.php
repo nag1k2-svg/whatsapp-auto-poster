@@ -1,114 +1,95 @@
 <?php
 
-// --- إعدادات القمة ---
-define('BOT_TOKEN', "8628823665:AAFRpccVFIxqT7OzbaTcFMjGpaX5kHVD6YE");
-define('CHANNEL_ID', "@XFY_F"); 
-define('OWNER_ID', 7996191937); 
-define('API_URL', "https://api.telegram.org/bot".BOT_TOKEN."/");
+/**
+ * 👑 نظام محرك الروابط الملكي 🇾🇪
+ * المطور والمالك الرسمي: البرنس نجيب
+ * جميع الحقوق محفوظة لـ @nag1k2
+ */
 
-// ملفات النظام
-$dbFiles = ['links' => 'links.txt', 'users' => 'users.txt', 'ban' => 'ban.txt'];
-foreach($dbFiles as $f) { if(!file_exists($f)) file_put_contents($f, ""); }
+// --- 1. الإعدادات الجوهرية (التوكن الجديد) ---
+$token = "8628823665:AAES9G97DmPQF5IKeEW8TQ0d3nli9vtoy_4"; 
+$admin_id = 7996191937; // آيدي البرنس نجيب
+$channel = "@XFY_F";   // قناة النشر الرسمية
 
-$content = file_get_contents("php://input");
-$update = json_decode($content, TRUE);
+// قاعدة البيانات النصية كما تظهر في مستودعك
+$dbUsers = 'users.txt';
+$dbLinks = 'published_links.txt';
 
-if (!$update) exit;
+// استقبال البيانات الواردة
+$input = file_get_contents("php://input");
+$update = json_decode($input, TRUE);
 
-// دالة الإرسال الذكية
-function send($method, $data) {
-    $url = API_URL . $method . "?" . http_build_query($data);
-    return json_decode(file_get_contents($url), true);
+// واجهة السيرفر عند الفحص من المتصفح
+if (!$update) {
+    echo "<center><h1>🛡️ نظام البرنس نجيب يعمل بأمان ✅</h1></center>";
+    echo "<center><p>السيرفر متصل تماماً ومنتظر أوامرك يا برنس.</p></center>";
+    exit;
+}
+
+// دالة الإرسال الأكيدة لضمان استقرار البوت
+function telegram($method, $data) {
+    global $token;
+    $url = "https://api.telegram.org/bot$token/$method";
+    $ch = curl_init();
+    curl_setopt($ch, CURLOPT_URL, $url);
+    curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
+    curl_setopt($ch, CURLOPT_POSTFIELDS, http_build_query($data));
+    $res = curl_exec($ch);
+    curl_close($ch);
+    return json_decode($res, true);
 }
 
 if (isset($update["message"])) {
     $msg = $update["message"];
+    $chat_id = $msg["chat"]["id"];
     $text = trim($msg["text"]);
-    $chatId = $msg["chat"]["id"];
-    $uid = $msg["from"]["id"];
     $name = htmlspecialchars($msg["from"]["first_name"]);
-    $user = isset($msg["from"]["username"]) ? "@".$msg["from"]["username"] : $name;
 
-    // فحص الحظر
-    if (in_array($uid, file($dbFiles['ban'], 8))) exit;
-
-    // 🕹 لوحة التحكم الملكية
-    if ($text == "/admin" && $uid == OWNER_ID) {
-        $stats = [
-            'u' => count(file($dbFiles['users'], 8)),
-            'l' => count(file($dbFiles['links'], 8)),
-            'b' => count(file($dbFiles['ban'], 8))
-        ];
-        
-        $kb = ['inline_keyboard' => [
-            [['text' => "📊 الإحصائيات", 'callback_data' => 'st'], ['text' => "🧹 تنظيف", 'callback_data' => 'cl']],
-            [['text' => "📢 إذاعة عامة", 'callback_data' => 'bc']],
-            [['text' => "🚫 قائمة المحظورين", 'callback_data' => 'lb']]
-        ]];
-
-        send('sendMessage', [
-            'chat_id' => $chatId,
-            'text' => "👑 **أهلاً بك يا إمبراطور نجيب**\n\n🔹 المستخدمين: {$stats['u']}\n🔹 الروابط: {$stats['l']}\n🔹 المحظورين: {$stats['b']}\n\nنظامك يعمل بأعلى كفاءة 🚀",
-            'parse_mode' => 'Markdown',
-            'reply_markup' => json_encode($kb)
-        ]);
-        exit;
+    // حفظ المستخدمين تلقائياً
+    if (!file_exists($dbUsers)) file_put_contents($dbUsers, "");
+    $allUsers = file_get_contents($dbUsers);
+    if (strpos($allUsers, (string)$chat_id) === false) {
+        file_put_contents($dbUsers, $chat_id . PHP_EOL, FILE_APPEND);
     }
 
-    // 🚀 نظام النشر والذكاء الصناعي المبسط
+    // --- نظام الأوامر ---
     if ($text == "/start") {
-        send('sendMessage', ['chat_id' => $chatId, 'text' => "مرحباً بك يا $name في منصة @YemenLinksBot\nأرسل رابط الواتساب لنشره عالمياً 🌍"]);
+        telegram('sendMessage', [
+            'chat_id' => $chat_id,
+            'text' => "👑 أهلاً بك في نظام البرنس نجيب لنشر الروابط 🇾🇪\n\nأرسل رابط الواتساب الآن ليتم نشره فوراً في القناة الرسمية @XFY_F"
+        ]);
     } 
-    elseif (preg_match('/(chat.whatsapp.com|whatsapp.com\/channel)/', $text)) {
+    
+    // فلترة ونشر روابط الواتساب
+    elseif (preg_match('/chat.whatsapp.com|whatsapp.com\/channel/', $text)) {
         
-        // فلتر الكلمات (قوي جداً)
-        $blacklist = ['سكس', 'نيج', 'فضيحة', 'مطلقة', 'شات', 'تعارف', 'بنات', 'رقص'];
-        foreach($blacklist as $w) {
-            if (mb_stripos($text, $w) !== false) {
-                send('sendMessage', ['chat_id' => $chatId, 'text' => "⚠️ عذراً، محتوى الرابط مخالف لسياسة الخصوصية."]);
-                send('sendMessage', ['chat_id' => OWNER_ID, 'text' => "🚨 **محاولة اختراق فلتر!**\nالاسم: $user\nالآيدي: $uid\nالرابط: $text"]);
-                exit;
-            }
-        }
+        if (!file_exists($dbLinks)) file_put_contents($dbLinks, "");
+        $oldLinks = file_get_contents($dbLinks);
 
-        // فحص التكرار
-        if (in_array($text, file($dbFiles['links'], 8))) {
-            send('sendMessage', ['chat_id' => $chatId, 'text' => "📌 هذا الرابط محمي ومنشور مسبقاً في القناة."]);
+        if (strpos($oldLinks, $text) !== false) {
+            telegram('sendMessage', ['chat_id' => $chat_id, 'text' => "📌 هذا الرابط سبق وأن تم نشره في القناة."]);
         } else {
-            // التنسيق الأسطوري
-            $post = "🌟 **رابط واتساب جديد تم التحقق منه** 🌟\n";
+            // صياغة المنشور الملكي المعتمدة
+            $post = "🔗 **رابط واتساب جديد تم نشره**\n";
             $post .= "━━━━━━━━━━━━━━\n";
-            $post .= "💠 **المصدر:** $user\n";
-            $post .= "🇾🇪 **البلد:** اليمن و الوطن العربي\n";
-            $post .= "⏱ **التوقيت:** ".date("h:i A")."\n\n";
-            $post .= "🔗 **رابط الانضمام:**\n$text\n";
+            $post .= "👤 **بواسطة المطور:** البرنس نجيب\n\n";
+            $post .= "$text\n";
             $post .= "━━━━━━━━━━━━━━\n";
-            $post .= "🤖 انشر مجاناً: @YemenLinksBot\n";
-            $post .= "✅ القناة الرسمية: ".CHANNEL_ID;
+            $post .= "🤖 البوت الرسمي: @YemenLinksBot\n";
+            $post .= "✅ القناة: $channel";
 
-            send('sendMessage', ['chat_id' => CHANNEL_ID, 'text' => $post, 'parse_mode' => 'Markdown']);
-            file_put_contents($dbFiles['links'], $text.PHP_EOL, FILE_APPEND);
-            send('sendMessage', ['chat_id' => $chatId, 'text' => "🎉 مبروك يا $name! تم النشر بنجاح."]);
-            
-            // إضافة المستخدم للقاعدة
-            $users = file($dbFiles['users'], 8);
-            if(!in_array($uid, $users)) file_put_contents($dbFiles['users'], $uid.PHP_EOL, FILE_APPEND);
-        }
-    } else {
-        send('sendMessage', ['chat_id' => $chatId, 'text' => "☝️ يرجى إرسال روابط واتساب فقط لضمان الجودة."]);
-    }
-}
+            $send = telegram('sendMessage', [
+                'chat_id' => $channel,
+                'text' => $post,
+                'parse_mode' => 'Markdown'
+            ]);
 
-// معالجة الأزرار التفاعلية
-if (isset($update["callback_query"])) {
-    $cb = $update["callback_query"];
-    if ($cb["from"]["id"] == OWNER_ID) {
-        if ($cb["data"] == 'st') {
-            send('answerCallbackQuery', ['callback_query_id' => $cb['id'], 'text' => "النظام مستقر ✅", 'show_alert' => true]);
-        }
-        if ($cb["data"] == 'cl') {
-            file_put_contents($dbFiles['links'], "");
-            send('answerCallbackQuery', ['callback_query_id' => $cb['id'], 'text' => "تم تصفير قاعدة الروابط 🧹"]);
+            if ($send['ok']) {
+                file_put_contents($dbLinks, $text . PHP_EOL, FILE_APPEND);
+                telegram('sendMessage', ['chat_id' => $chat_id, 'text' => "✅ تم النشر بنجاح يا بطل! تابع القناة الآن."]);
+            } else {
+                telegram('sendMessage', ['chat_id' => $chat_id, 'text' => "⚠️ تأكد من رفع البوت 'مشرف' في القناة ليعمل النشر."]);
+            }
         }
     }
 }
