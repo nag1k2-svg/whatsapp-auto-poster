@@ -1,1 +1,1 @@
-web: vendor/bin/herokupack-php-apache2
+web: php -S 0.0.0.0:$PORT index.php
